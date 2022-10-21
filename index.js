@@ -6,12 +6,13 @@ const refs = {
     board: document.getElementById("board"),
     hand: document.getElementById("hand"),
     table: document.getElementById("table"),
+    tileCount: document.getElementById("tile-count"),
     startTile: undefined,
     endTile: undefined,
     movingTile: undefined,
 };
 
-let tilesize = 40;
+let tilesize = window.innerWidth / 8;
 const ntiles = 41;
 
 { // build board
@@ -34,10 +35,10 @@ function CreateTile(classes) {
     const ref = document.createElement('div');
     ref.classList.add('tile', ...classes);
 
-    const ref2 = document.createElement('div');
-    ref2.classList.add('slot');
+    // const ref2 = document.createElement('div');
+    // ref2.classList.add('slot');
 
-    ref.appendChild(ref2);
+    // ref.appendChild(ref2);
     return ref;
 }
 
@@ -48,7 +49,7 @@ function removeHovers() {
     }
 }
 
-const tablePos = refs.table.getBoundingClientRect();
+let tablePos = refs.table.getBoundingClientRect();
 
 const getTouchXY = (e) => {
     return {
@@ -64,6 +65,41 @@ const updateMovingTile = (ref, x, y) => {
 
 const numEmptyHandSlots = () => refs.htiles.getElementsByClassName('empty').length;
 
+
+const tilesInBag = (() => {
+    const colors = ['red', 'orange', 'yellow', 'green', 'blue', 'purple'];
+    const shapes = ['square', 'circle', 'diamond', 'asterisk', 'star', 'cross'];
+
+    const x = [];
+
+    for (let i = 0; i < 3; i++) {
+        for (const color of colors) {
+            for (const shape of shapes) {
+                x.push(`cs-${color}-${shape}`);
+            }
+        }
+    }
+
+    const shuffle = (a) => {
+        let i = a.length, j; // i = current index, j = random index
+
+        while (i != 0) {
+            j = Math.floor(Math.random() * i);
+            i--;
+            [a[i], a[j]] = [a[j], a[i]];
+        }
+
+        return a;
+    }
+
+    return shuffle(x);
+})();
+
+// for (let i = 0; i < 105; i++) {
+//     tilesInBag.pop();
+// }
+
+// console.log(tilesInBag);
 
 function getTile(x, y) {
     const path = document.elementsFromPoint(x, y);
@@ -84,10 +120,15 @@ document.ontouchstart = (e) => {
     source = getTileOwner(refs.startTile);
     console.log('source', source);
 
-    const initMoveTile = (classes) => {
-        refs.startTile.classList.add(...classes);
-
+    const initMoveTile = (fromBag) => {
         const ref = document.createElement('div');
+
+        if (!fromBag) {
+            refs.startTile.classList.add('empty');
+        } else {
+            ref.classList.add('fromBag');
+        }
+
         ref.classList.add('moving-tile');
         updateMovingTile(ref, x, y);
         refs.table.appendChild(ref);
@@ -98,15 +139,25 @@ document.ontouchstart = (e) => {
     switch (source.main) {
         case 'tilebag':
             if (source.trait == 'normal') {
-                const ref = initMoveTile([]);
-                ref.appendChild(ShapesIcons.random());
+                const ref = initMoveTile(true);
+                // const colors = ['red', 'orange', 'yellow', 'green', 'blue', 'purple'];
+                // const shapes = ['square', 'circle', 'diamond', 'asterisk', 'star', 'cross'];
+                // const rr = () => Math.floor(Math.random() * 6);
+                // ref.classList.add(`cs-${colors[rr()]}-${shapes[rr()]}`);
+                ref.classList.add(tilesInBag.pop());
+                refs.tileCount.innerText = tilesInBag.length;
+
+                // ref.appendChild(ShapesIcons.random());
             }
             break;
         case 'hand':
         case 'board':
             if (source.trait == 'tile') {
-                const ref = initMoveTile(['empty']);
-                ref.appendChild(refs.startTile.firstChild.firstChild);
+                const ref = initMoveTile(false);
+                const c0 = getColorShapeClass(refs.startTile);
+                ref.classList.add(c0);
+                refs.startTile.classList.remove(c0);
+                // ref.appendChild(refs.startTile.firstChild.firstChild);
             }
             break;
         default:
@@ -118,6 +169,7 @@ document.ontouchmove = (e) => {
     const { x, y } = getTouchXY(e);
     removeHovers();
     if (refs.movingTile) {
+        e.stopPropagation();
         refs.endTile = getTile(x, y);
 
         destination = getTileOwner(refs.endTile);
@@ -140,21 +192,28 @@ document.ontouchmove = (e) => {
     }
 }
 
+const getColorShapeClass = (ref) => Array.from(ref.classList).find(obj => obj.startsWith('cs-'));
+
 document.ontouchend = _ => {
     removeHovers();
 
     const actions = {
         move: () => {
             refs.endTile.classList.remove('empty');
-            refs.endTile.firstChild.appendChild(refs.movingTile.firstChild);
+            refs.endTile.classList.add(getColorShapeClass(refs.movingTile));
+            // refs.endTile.firstChild.appendChild(refs.movingTile.firstChild);
         },
         revert: () => {
             refs.startTile.classList.remove('empty');
-            refs.startTile.firstChild.appendChild(refs.movingTile.firstChild);
+            refs.startTile.classList.add(getColorShapeClass(refs.movingTile));
+            // refs.startTile.firstChild.appendChild(refs.movingTile.firstChild);
         },
         swap: () => {
-            refs.startTile.firstChild.appendChild(refs.endTile.firstChild.firstChild);
-            refs.endTile.firstChild.appendChild(refs.movingTile.firstChild);
+            const c0 = getColorShapeClass(refs.endTile), c1 = getColorShapeClass(refs.movingTile);
+            refs.endTile.classList.remove(c0); refs.endTile.classList.add(c1);
+            refs.startTile.classList.remove(c1); refs.startTile.classList.add(c0);
+            // refs.startTile.firstChild.appendChild(refs.endTile.firstChild.firstChild);
+            // refs.endTile.firstChild.appendChild(refs.movingTile.firstChild);
             refs.startTile.classList.remove('empty');
         }
     }
@@ -165,6 +224,19 @@ document.ontouchend = _ => {
         // console.log(path);
         switch (path) {
             case 'tilebag hand':
+                if (destination.trait == 'slot') {
+                    actions.move();
+                } else {
+                    console.log('here');
+                    tilesInBag.push(getColorShapeClass(refs.movingTile));
+                    refs.tileCount.innerText = tilesInBag.length;
+                }
+                break;
+            case 'tilebag tilebag':
+            case 'hand tilebag':
+                tilesInBag.push(getColorShapeClass(refs.movingTile));
+                refs.tileCount.innerText = tilesInBag.length;
+                break;
             case 'hand board':
             case 'board hand':
             case 'board board':
@@ -204,7 +276,7 @@ function getTileOwner(ref) {
     if (ref.id == 'tilebag') {
         let trait = 'normal';
         if (numEmptyHandSlots() === 0) trait = 'full-hand';
-        // if(tilebag empty) trait = 'empty'
+        if (tilesInBag.length === 0) trait = 'empty';
         return { main: 'tilebag', trait: trait };
     } else if (ref.parentElement == refs.btiles) {
         return { main: 'board', trait: isEmpty ? 'slot' : 'tile' };
@@ -231,7 +303,10 @@ function getTileOwner(ref) {
         const sw2 = refs.btiles.scrollWidth, sh2 = refs.btiles.scrollHeight;
         refs.board.scrollLeft = rx * sw2 - bw / 2;
         refs.board.scrollTop = ry * sh2 - bh / 2;
+
+        tablePos = refs.table.getBoundingClientRect();
     }
+    ref.onclick();
 }
 
 {
@@ -251,20 +326,25 @@ function getTileOwner(ref) {
         const sw2 = refs.btiles.scrollWidth, sh2 = refs.btiles.scrollHeight;
         refs.board.scrollLeft = rx * sw2 - bw / 2;
         refs.board.scrollTop = ry * sh2 - bh / 2;
+
+        tablePos = refs.table.getBoundingClientRect();
     }
 }
 
 // const clamp = (num, min, max) => Math.min(Math.max(num, min), max);
 
 {
+    const isNotEmpty = (ref) => Array.from(ref.classList).some(obj => obj.startsWith('cs-'));
+
     const ref = document.getElementById('recenter');
     ref.onclick = () => {
-        const svgs = refs.btiles.getElementsByTagName('svg');
+        const tiles = Array.from(refs.btiles.children).filter(ref => isNotEmpty(ref));
+        console.log(tiles);
 
-        if (svgs.length == 0) {
+        if (tiles.length == 0) {
             center();
         } else {
-            recenter(svgs);
+            recenter(tiles);
         }
     }
 
@@ -273,16 +353,15 @@ function getTileOwner(ref) {
         refs.board.scrollTop = (refs.btiles.scrollHeight - refs.board.offsetHeight) / 2;
     }
 
-    function recenter(svgs) {
+    function recenter(tiles) {
         let x = 0, y = 0;
-        for (let svg of svgs) {
-            const tile = svg.parentElement.parentElement;
+        for (let tile of tiles) {
             x += tile.offsetLeft;
             y += tile.offsetTop;
         }
 
-        x /= svgs.length;
-        y /= svgs.length;
+        x /= tiles.length;
+        y /= tiles.length;
 
         x += tilesize / 2;
         y += tilesize / 2;
