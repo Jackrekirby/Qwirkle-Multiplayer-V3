@@ -237,3 +237,7 @@ body {
   font-weight: bold;
   font-size: calc(var(--size) / 3.5);
 }
+
+#connection svg {
+  transition: fill 0.3s ease-in-out;
+}

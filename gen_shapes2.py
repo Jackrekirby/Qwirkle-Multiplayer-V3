@@ -8,7 +8,7 @@ shapes = {
     'star': '<polygon points="-0.821627,-26.099003 5.85314,-9.225069 23.178373,-7.764635 9.978373,4.124465 14.011189,21.900997 -0.821627,12.374931 -15.654443,21.900997 -11.621627,4.124465 -24.821627,-7.764635 -7.496394,-9.225069 -0.821627,-26.099003" transform="translate(32.821627 34.099003)" fill="{0}" stroke-width="2" stroke="white"/>',
     'circle': '<ellipse rx="24" ry="24" transform="translate(32 32)" fill="{0}" stroke-width="2" stroke="white"/>',
     'square': '<rect width="40" height="40" rx="1" ry="1" transform="translate(12 12)" fill="{0}" stroke-width="2" stroke="white"/>',
-    'plus': '<rect width="16" height="48" rx="8" ry="8" transform="translate(24 8)" fill="{0}" stroke-width="2" stroke="white"/><rect width="48" height="16" rx="8" ry="8" transform="translate(8 24)" fill="{0}" stroke-width="2" stroke="white"/>',
+    'plus': '<rect width="16" height="48" rx="8" ry="8" transform="translate(24 8)" fill="{0}" stroke-width="2" stroke="white"/><rect width="48" height="16" rx="8" ry="8" transform="translate(8 24)" fill="{0}" stroke-width="2" stroke="white"/><rect width="14" height="20" rx="0" ry="0" transform="translate(25 22)" fill="{0}" stroke-width="0"/>',
     'diamond': '<rect width="32" height="32" rx="1" ry="1" transform="matrix(.707107 0.707107-.707107 0.707107 32 9.372583)" fill="{0}" stroke-width="2" stroke="white"/>',
 }
 
