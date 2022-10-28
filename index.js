@@ -14,7 +14,7 @@ const refs = {
 };
 
 {
-    const version = 'v1';
+    const version = '2';
     const ref = document.getElementById('version');
     if (version != ref.innerText) {
         ref.innerText = version + '*';
@@ -715,8 +715,8 @@ function clearHand() { // clear hand
     const ref = document.getElementById('refresh');
 
     ref.onclick = () => {
-        clearBoard();
-        clearHand();
+        // clearBoard();
+        // clearHand();
         socketSend({ action: 'refresh' });
         // loadBoard();
         // loadHand();
@@ -840,8 +840,8 @@ wsw.onmessage = (msg) => {
         case 'joinGame':
             playerId = data.playerId;
             console.log('Joined Game', playerId);
-            clearBoard();
-            clearHand();
+            // clearBoard();
+            // clearHand();
             socketSend({ action: 'refresh' });
             break;
         case 'game': {
@@ -852,14 +852,20 @@ wsw.onmessage = (msg) => {
                 for (let y = 0; y < ntiles; y++) {
                     const ref = document.getElementById(`btile_${x}_${y}`);
                     if (ref == null) continue;
-                    ref.classList.remove(...ref.classList);
-                    ref.classList.add('tile');
+
                     const tileId = board[x + y * ntiles];
+
                     if (tileId != null) {
-                        // console.log('board tile', x, y, tileIdToClass[tileId]);
-                        ref.classList.add(tileIdToClass[tileId]);
+                        const tileClass = tileIdToClass[tileId];
+                        if (!ref.classList.contains(tileClass)) {
+                            ref.classList.remove(...ref.classList);
+                            ref.classList.add('tile', tileClass);
+                        }
                     } else {
-                        ref.classList.add('empty');
+                        if (!ref.classList.contains('empty')) {
+                            ref.classList.remove(...ref.classList);
+                            ref.classList.add('tile', 'empty');
+                        }
                     }
                 }
             }
@@ -867,15 +873,19 @@ wsw.onmessage = (msg) => {
             for (let i = 0; i < 6; i++) {
                 const ref = document.getElementById(`htile_${i}`);
                 if (ref == null) continue;
-                ref.classList.remove(...ref.classList);
-                ref.classList.add('tile');
 
                 const tileId = hand[i];
                 if (tileId != null) {
-                    // console.log('tileIdToClass', tileIdToClass);
-                    ref.classList.add(tileIdToClass[tileId]);
+                    const tileClass = tileIdToClass[tileId];
+                    if (!ref.classList.contains(tileClass)) {
+                        ref.classList.remove(...ref.classList);
+                        ref.classList.add('tile', tileClass);
+                    }
                 } else {
-                    ref.classList.add('empty');
+                    if (!ref.classList.contains('empty')) {
+                        ref.classList.remove(...ref.classList);
+                        ref.classList.add('tile', 'empty');
+                    }
                 }
             }
 
