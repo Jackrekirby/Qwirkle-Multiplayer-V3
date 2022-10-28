@@ -1,3 +1,5 @@
+console.log('Version 1');
+
 const refs = {
     btiles: document.getElementById("board-tiles"),
     htiles: document.getElementById("hand-tiles"),
