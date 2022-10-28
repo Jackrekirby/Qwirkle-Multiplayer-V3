@@ -14,7 +14,7 @@ const refs = {
 };
 
 {
-    const version = '2';
+    const version = '3';
     const ref = document.getElementById('version');
     if (version != ref.innerText) {
         ref.innerText = version + '*';
@@ -335,6 +335,7 @@ function onPointerMove(e, getXYFnc) {
     removeHovers();
     if (refs.movingTile) {
         e.stopPropagation();
+        e.preventDefault();
         refs.endTile = getTile(x, y);
 
         destination = getTileOwner(refs.endTile);
@@ -711,12 +712,20 @@ function clearHand() { // clear hand
 //     }
 // }
 
+function clearMovingTile() {
+    const refTiles = document.getElementsByClassName('moving-tile');
+    while (refTiles[0]) {
+        refTiles[0].parentNode.removeChild(refTiles[0]);
+    }
+}
+
 {
     const ref = document.getElementById('refresh');
 
     ref.onclick = () => {
         // clearBoard();
         // clearHand();
+        clearMovingTile();
         socketSend({ action: 'refresh' });
         // loadBoard();
         // loadHand();
