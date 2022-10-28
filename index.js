@@ -1,5 +1,3 @@
-console.log('Version 1');
-
 const refs = {
     btiles: document.getElementById("board-tiles"),
     htiles: document.getElementById("hand-tiles"),
@@ -14,12 +12,25 @@ const refs = {
 };
 
 {
-    const version = '3';
+    const version = '4';
     const ref = document.getElementById('version');
     if (version != ref.innerText) {
         ref.innerText = version + '*';
     }
 }
+
+const audio = {
+    click: new Audio('audio/click.mp3'),
+    takeTileFromBag: new Audio('audio/takeTileFromBag.mp3'),
+    qwirkle: new Audio('audio/qwirkle.mp3'),
+    point: new Audio('audio/point.mp3'),
+    invalid: new Audio('audio/wrong.mp3'),
+    place: new Audio('audio/place.mp3'),
+    undo: new Audio('audio/undo.mp3'),
+    submit: new Audio('audio/submit.mp3'),
+    select: new Audio('audio/select.mp3'),
+}
+
 
 // constants
 
@@ -298,6 +309,7 @@ async function onPointerStart(e, getXYFnc) {
     switch (source.main) {
         case 'tilebag':
             if (source.trait == 'normal') {
+                audio.takeTileFromBag.play();
                 initMoveTile(true);
                 // const tileClass = await takeTileFromBag();
                 // console.log('tileClass', tileClass);
@@ -322,6 +334,7 @@ async function onPointerStart(e, getXYFnc) {
                 const c0 = getColorShapeClass(refs.startTile);
                 ref.classList.add(c0);
                 refs.startTile.classList.remove(c0);
+                audio.place.play();
                 // ref.appendChild(refs.startTile.firstChild.firstChild);
             }
             break;
@@ -371,6 +384,7 @@ async function onPointerEnd() {
             }
         },
         move: async () => {
+            audio.select.play();
             const tileClass = getColorShapeClass(refs.movingTile);
 
             let success;
@@ -432,17 +446,28 @@ async function onPointerEnd() {
             // refs.endTile.firstChild.appendChild(refs.movingTile.firstChild);
         },
         revert: () => {
+            audio.invalid.play();
             refs.startTile.classList.remove('empty');
             refs.startTile.classList.add(getColorShapeClass(refs.movingTile));
             // refs.startTile.firstChild.appendChild(refs.movingTile.firstChild);
         },
-        swap: () => {
-            const c0 = getColorShapeClass(refs.endTile), c1 = getColorShapeClass(refs.movingTile);
-            refs.endTile.classList.remove(c0); refs.endTile.classList.add(c1);
-            refs.startTile.classList.remove(c1); refs.startTile.classList.add(c0);
-            // refs.startTile.firstChild.appendChild(refs.endTile.firstChild.firstChild);
-            // refs.endTile.firstChild.appendChild(refs.movingTile.firstChild);
-            refs.startTile.classList.remove('empty');
+        swap: async () => {
+            const success = await addCallBack({
+                action: 'swapTilesInHand',
+                playerId,
+                handIndexA: Number(refs.startTile.id.split('_')[1]),
+                handIndexB: Number(refs.endTile.id.split('_')[1]),
+            });
+
+            if (success) {
+                audio.undo.play();
+                const c0 = getColorShapeClass(refs.endTile), c1 = getColorShapeClass(refs.movingTile);
+                refs.endTile.classList.remove(c0); refs.endTile.classList.add(c1);
+                refs.startTile.classList.remove(c1); refs.startTile.classList.add(c0);
+                // refs.startTile.firstChild.appendChild(refs.endTile.firstChild.firstChild);
+                // refs.endTile.firstChild.appendChild(refs.movingTile.firstChild);
+                refs.startTile.classList.remove('empty');
+            }
         }
     }
 
@@ -503,10 +528,11 @@ async function onPointerEnd() {
                     if (destination.trait == 'slot') {
                         await actions.move();
                     } else {
-                        actions.swap();
+                        await actions.swap();
                     }
                     break;
                 default:
+                    audio.invalid.play();
                     break;
             }
         }
@@ -568,6 +594,7 @@ function getTileOwner(ref) {
 {
     const ref = document.getElementById('zoom-in');
     ref.onclick = () => {
+        audio.click.play();
         const sx = refs.board.scrollLeft, sy = refs.board.scrollTop;
         const bw = refs.board.offsetWidth, bh = refs.board.offsetHeight;
         const sw = refs.btiles.scrollWidth, sh = refs.btiles.scrollHeight;
@@ -590,6 +617,7 @@ function getTileOwner(ref) {
 {
     const ref = document.getElementById('zoom-out');
     ref.onclick = () => {
+        audio.click.play();
         const sx = refs.board.scrollLeft, sy = refs.board.scrollTop;
         const bw = refs.board.offsetWidth, bh = refs.board.offsetHeight;
         const sw = refs.btiles.scrollWidth, sh = refs.btiles.scrollHeight;
@@ -616,6 +644,7 @@ function getTileOwner(ref) {
 
     const ref = document.getElementById('recenter');
     ref.onclick = () => {
+        audio.click.play();
         const tiles = Array.from(refs.btiles.children).filter(ref => isNotEmpty(ref));
         console.log(tiles);
 
@@ -723,6 +752,7 @@ function clearMovingTile() {
     const ref = document.getElementById('refresh');
 
     ref.onclick = () => {
+        audio.click.play();
         // clearBoard();
         // clearHand();
         clearMovingTile();
@@ -741,6 +771,7 @@ function clearMovingTile() {
 {
     const ref = document.getElementById('new');
     ref.onclick = () => {
+        audio.point.play();
         gameId = uuidv4();
         newGame();
         wsw.ws.close();
@@ -922,6 +953,7 @@ wsw.onmessage = (msg) => {
             updateTileBagCount();
             if (data.success) {
                 callbackQueue[data.callbackId].resolve(true);
+                audio.takeTileFromBag.play();
             } else {
                 callbackQueue[data.callbackId].resolve(null);
             }
