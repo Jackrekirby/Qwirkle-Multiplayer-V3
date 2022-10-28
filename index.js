@@ -13,14 +13,15 @@ const refs = {
 
 // constants
 
-const url = 'wss://qwirkle-ws.herokuapp.com';
+const url = 'wss://qwirkle-ws2.herokuapp.com';
 // const url = 'ws://localhost:3000/ws';
 
 let tilesize = Math.floor(window.innerWidth / 8);
 const ntiles = 41;
 let tilesInBag = [];
-let userHands = {};
+let userHands = [];
 let boardTiles = {};
+let playerId;
 
 {
     const data = localStorage.getItem('tilesInBag');
@@ -75,7 +76,7 @@ function newGame() {
     setGameUrlParam(gameId);
 
     localStorage.removeItem('boardTiles');
-    localStorage.removeItem('userHands');
+    // localStorage.removeItem('userHands');
     clearBoard();
     clearHand();
     tilesInBag = createTileBag();
@@ -187,6 +188,22 @@ function createTileBag() {
 };
 
 
+const tileIdToClass = (() => {
+    const colors = ['red', 'orange', 'yellow', 'green', 'blue', 'purple'];
+    const shapes = ['square', 'circle', 'diamond', 'asterisk', 'plus', 'cross'];
+
+    const x = [];
+
+    for (let i = 0; i < 3; i++) {
+        for (const color of colors) {
+            for (const shape of shapes) {
+                x.push(`cs-${color}-${shape}`);
+            }
+        }
+    }
+    return x;
+})();
+
 const callbackQueue = {};
 
 function addCallBack(socketJsonMessage) {
@@ -216,13 +233,15 @@ function addCallBack(socketJsonMessage) {
 }
 
 
-function takeTileFromBag() {
-    return addCallBack({ action: 'takeTileFromBag' });
+function takeTileFromBag(handIndex) {
+    console.log('takeTileFromBag', playerId, handIndex);
+    return addCallBack({ action: 'takeTileFromBag', playerId, handIndex });
 }
 
-function addTileToBag(tile) {
-    const insertIndex = Math.floor(Math.random() * tilesInBag.length);
-    return addCallBack({ action: 'addTileToBag', tile, insertIndex });
+function addTileToBag(handIndex) {
+    // const insertIndex = Math.floor(Math.random() * tilesInBag.length);
+    console.log('putTileInBag', playerId, handIndex);
+    return addCallBack({ action: 'putTileInBag', playerId, handIndex });
 }
 
 function updateTileBagCount() {
@@ -332,8 +351,8 @@ async function onPointerEnd() {
     removeHovers();
 
     const actions = {
-        add: async () => {
-            const tileClass = await takeTileFromBag();
+        add: async (handIndex) => {
+            const tileClass = await takeTileFromBag(handIndex);
             console.log('tileClass', tileClass);
             if (tileClass != null) {
                 refs.endTile.classList.remove('empty');
@@ -343,12 +362,49 @@ async function onPointerEnd() {
         move: async () => {
             const tileClass = getColorShapeClass(refs.movingTile);
 
-            const success = await addCallBack({
-                action: 'moveTile',
-                startTileId: refs.startTile.id,
-                endTileId: refs.endTile.id,
-                tileClass
-            });
+            let success;
+            console.log(source.main, destination.main);
+            if (source.main == 'hand' && destination.main == 'board') {
+                success = await addCallBack({
+                    action: 'placeTileOnBoard',
+                    playerId,
+                    handIndex: Number(refs.startTile.id.split('_')[1]),
+                    boardCoord: (() => {
+                        const coord = refs.endTile.id.split('_');
+                        return { x: Number(coord[1]), y: Number(coord[2]) };
+                    })(),
+                });
+            } else if (source.main == 'board' && destination.main == 'board') {
+                success = await addCallBack({
+                    action: 'moveTileOnBoard',
+                    playerId,
+                    boardCoordA: (() => {
+                        const coord = refs.startTile.id.split('_');
+                        return { x: Number(coord[1]), y: Number(coord[2]) };
+                    })(),
+                    boardCoordB: (() => {
+                        const coord = refs.endTile.id.split('_');
+                        return { x: Number(coord[1]), y: Number(coord[2]) };
+                    })(),
+                });
+            } else if (source.main == 'board' && destination.main == 'hand') {
+                success = await addCallBack({
+                    action: 'takeTileFromBoard',
+                    playerId,
+                    handIndex: Number(refs.endTile.id.split('_')[1]),
+                    boardCoord: (() => {
+                        const coord = refs.startTile.id.split('_');
+                        return { x: Number(coord[1]), y: Number(coord[2]) };
+                    })(),
+                });
+            } else if (source.main == 'hand' && destination.main == 'hand') {
+                success = await addCallBack({
+                    action: 'swapTilesInHand',
+                    playerId,
+                    handIndexA: Number(refs.startTile.id.split('_')[1]),
+                    handIndexB: Number(refs.endTile.id.split('_')[1]),
+                });
+            }
 
             if (success) {
                 // console.log(success, refs.endTile);
@@ -395,7 +451,9 @@ async function onPointerEnd() {
             switch (path) {
                 case 'tilebag hand':
                     if (destination.trait == 'slot') {
-                        await actions.add();
+                        const handIndex = Number(refs.endTile.id.split('_')[1]);
+                        // console.log('kk', refs.endTile.id.split('_')[1]);
+                        await actions.add(handIndex);
                     }
                     break;
                 case 'tilebag tilebag': {
@@ -406,7 +464,9 @@ async function onPointerEnd() {
                     break;
                 }
                 case 'hand tilebag': {
-                    const tile = await addTileToBag(getColorShapeClass(refs.movingTile));
+                    // getColorShapeClass(refs.movingTile)
+                    const handIndex = Number(refs.startTile.id.split('_')[1]);
+                    const tile = await addTileToBag(handIndex);
                     if (tile == null) {
                         actions.revert();
                         console.warn('Failed to addTileToBag');
@@ -451,27 +511,29 @@ async function onPointerEnd() {
 
 const getColorShapeClass = (ref) => Array.from(ref.classList).find(obj => obj.startsWith('cs-'));
 
-document.ontouchstart = (e) => {
+
+const pointerDom = refs.table;
+pointerDom.ontouchstart = (e) => {
     onPointerStart(e, getTouchXY);
 }
 
-document.onmousedown = (e) => {
+pointerDom.onmousedown = (e) => {
     onPointerStart(e, getMouseXY);
 }
 
-document.ontouchmove = (e) => {
+pointerDom.ontouchmove = (e) => {
     onPointerMove(e, getTouchXY);
 }
 
-document.onmousemove = (e) => {
+pointerDom.onmousemove = (e) => {
     onPointerMove(e, getMouseXY);
 }
 
-document.ontouchend = _ => {
+pointerDom.ontouchend = _ => {
     onPointerEnd();
 }
 
-document.onmouseup = _ => {
+pointerDom.onmouseup = _ => {
     onPointerEnd();
 }
 
@@ -602,7 +664,7 @@ function clearBoard() { // clear board
 }
 
 function clearHand() { // clear hand
-    userHands = {};
+    userHands = [];
     for (let i = 0; i < 6; i++) {
         const ref = document.getElementById(`htile_${i}`);
         if (ref == null) continue;
@@ -611,33 +673,33 @@ function clearHand() { // clear hand
     }
 }
 
-function loadBoard() { // load board
-    const data = localStorage.getItem('boardTiles');
-    if (data != null) {
-        boardTiles = JSON.parse(data);
-        for (const [tileId, tileClass] of Object.entries(boardTiles)) {
-            const ref = document.getElementById(tileId);
-            ref.classList.remove('empty');
-            ref.classList.add(tileClass);
-        }
-    }
-}
-function loadHand() { // load hand
-    const data = localStorage.getItem('userHands');
+// function loadBoard() { // load board
+//     const data = localStorage.getItem('boardTiles');
+//     if (data != null) {
+//         boardTiles = JSON.parse(data);
+//         for (const [tileId, tileClass] of Object.entries(boardTiles)) {
+//             const ref = document.getElementById(tileId);
+//             ref.classList.remove('empty');
+//             ref.classList.add(tileClass);
+//         }
+//     }
+// }
+// function loadHand() { // load hand
+//     const data = localStorage.getItem('userHands');
 
-    if (data != null) {
-        userHands = JSON.parse(data);
-        if (userHands[userId] != undefined) {
-            let i = 0;
-            for (const tileClass of userHands[userId]) {
-                const ref = document.getElementById(`htile_${i}`);
-                ref.classList.remove('empty');
-                ref.classList.add(tileClass);
-                i++;
-            }
-        }
-    }
-}
+//     if (data != null) {
+//         userHands = JSON.parse(data);
+
+//         let i = 0;
+//         for (const tileClass of userHands) {
+//             const ref = document.getElementById(`htile_${i}`);
+//             ref.classList.remove('empty');
+//             ref.classList.add(tileClass);
+//             i++;
+//         }
+
+//     }
+// }
 
 {
     const ref = document.getElementById('refresh');
@@ -645,12 +707,13 @@ function loadHand() { // load hand
     ref.onclick = () => {
         clearBoard();
         clearHand();
-        loadBoard();
-        loadHand();
+        socketSend({ action: 'refresh' });
+        // loadBoard();
+        // loadHand();
     }
 
-    loadBoard();
-    loadHand();
+    // loadBoard();
+    // loadHand();
 }
 
 
@@ -710,7 +773,7 @@ wsw.onopen = () => {
 
     let userId = localStorage.getItem('userId');
     let gameId = localStorage.getItem('gameId');
-    socketSend({ action: 'new', userId, gameId });
+    socketSend({ action: 'joinGame', userId, gameId });
 
     // setTimeout(() => {
     //     wsw.ws.close();
@@ -731,30 +794,26 @@ wsw.onerror = (e) => {
 
 
 
-function addUserIfNotFound(callerId) {
-    if (userHands[callerId] == undefined) {
-        userHands[callerId] = [];
-    }
-}
 
-function addTileToHand(callerId, tileClass) {
-    addUserIfNotFound(callerId);
-    userHands[callerId].push(tileClass);
+function addTileToHand(tileClass) {
+    userHands.push(tileClass);
     // console.log('userHands', userHands);
     localStorage.setItem('userHands', JSON.stringify(userHands));
 }
 
-function removeTileFromHand(callerId, tileClass) {
-    addUserIfNotFound(callerId);
-    const index = userHands[callerId].indexOf(tileClass);
+function removeTileFromHand(index) {
+
+    // const index = userHands[callerId].indexOf(tileClass);
     if (index > -1) {
-        userHands[callerId].splice(index, 1);
+        userHands.splice(index, 1);
     } else {
-        console.warn(`User ${callerId} does not have tile in hand ${tileClass}`);
+        console.warn(`User does not have tile at index ${index}`);
     }
     // console.log('userHands', userHands);
     localStorage.setItem('userHands', JSON.stringify(userHands));
 }
+
+
 
 wsw.onmessage = (msg) => {
     const data = JSON.parse(msg.data);
@@ -768,31 +827,95 @@ wsw.onmessage = (msg) => {
     }
 
     switch (data.action) {
-        case 'takeTileFromBag':
-            const tile = tilesInBag.pop();
-            addTileToHand(data.callerId, tile);
+        case 'joinGame':
+            playerId = data.playerId;
+            console.log('Joined Game', playerId);
+            clearBoard();
+            clearHand();
+            socketSend({ action: 'refresh' });
+            break;
+        case 'game': {
+            if (playerId == undefined) break;
+            const { tilebag, board, hands } = data.game;
+            const hand = hands[playerId];
+            for (let x = 0; x < ntiles; x++) {
+                for (let y = 0; y < ntiles; y++) {
+                    const ref = document.getElementById(`btile_${x}_${y}`);
+                    if (ref == null) continue;
+                    ref.classList.remove(...ref.classList);
+                    ref.classList.add('tile');
+                    const tileId = board[x + y * ntiles];
+                    if (tileId != null) {
+                        // console.log('board tile', x, y, tileIdToClass[tileId]);
+                        ref.classList.add(tileIdToClass[tileId]);
+                    } else {
+                        ref.classList.add('empty');
+                    }
+                }
+            }
+
+            for (let i = 0; i < 6; i++) {
+                const ref = document.getElementById(`htile_${i}`);
+                if (ref == null) continue;
+                ref.classList.remove(...ref.classList);
+                ref.classList.add('tile');
+
+                const tileId = hand[i];
+                if (tileId != null) {
+                    // console.log('tileIdToClass', tileIdToClass);
+                    ref.classList.add(tileIdToClass[tileId]);
+                } else {
+                    ref.classList.add('empty');
+                }
+            }
+
+            tilesInBag = tilebag;
+            boardTiles = board;
+            userHands = hands[playerId];
             updateTileBagCount();
-            if (data.callerId == userId) {
+            break;
+        }
+        case 'takeTileFromBag':
+            if (data.success) {
+                // console.log(tileIdToClass, data.tileId);
+                const tile = tileIdToClass[data.tileId];
+                // const tile = tilesInBag.pop();
+                addTileToHand(tile);
+                updateTileBagCount();
                 callbackQueue[data.callbackId].resolve(tile);
+            } else {
+                callbackQueue[data.callbackId].resolve(null);
             }
             break;
-        case 'addTileToBag':
-            removeTileFromHand(data.callerId, data.tile);
+        case 'putTileInBag':
+            removeTileFromHand(data.handIndex);
             tilesInBag.splice(data.insertIndex, 0, data.tile);
             updateTileBagCount();
-            if (data.callerId == userId) {
-                callbackQueue[data.callbackId].resolve(data.tile);
+            if (data.success) {
+                callbackQueue[data.callbackId].resolve(true);
+            } else {
+                callbackQueue[data.callbackId].resolve(null);
+            }
+            break;
+        case 'placeTileOnBoard':
+        case 'swapTilesInHand':
+        case 'takeTileFromBoard':
+        case 'moveTileOnBoard':
+            if (data.success) {
+                callbackQueue[data.callbackId].resolve(true);
+            } else {
+                callbackQueue[data.callbackId].resolve(null);
             }
             break;
         case 'moveTile':
             const { startTileId, endTileId, tileClass } = data;
             if (startTileId.startsWith('htile') && endTileId.startsWith('btile')) {
                 // remove tile from hand
-                removeTileFromHand(data.callerId, tileClass);
+                removeTileFromHand(tileClass);
                 boardTiles[endTileId] = tileClass;
             } else if (startTileId.startsWith('btile') && endTileId.startsWith('htile')) {
                 // add tile to hand
-                addTileToHand(data.callerId, tileClass);
+                addTileToHand(tileClass);
                 delete boardTiles[startTileId];
             } else if (startTileId.startsWith('btile') && endTileId.startsWith('btile')) {
                 boardTiles[endTileId] = tileClass;
