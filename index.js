@@ -818,13 +818,13 @@ function removeTileFromHand(index) {
 wsw.onmessage = (msg) => {
     const data = JSON.parse(msg.data);
 
-    const deltaTime = new Date().getTime() - data.time;
-    console.log('socket message', deltaTime, data);
+    // const deltaTime = new Date().getTime() - data.time;
+    console.log('socket message', data);
 
-    if (deltaTime > 500) {
-        console.warn('socket message was received too late, ', deltaTime);
-        return;
-    }
+    // if (deltaTime > 500) {
+    //     console.warn('socket message was received too late, ', deltaTime);
+    //     return;
+    // }
 
     switch (data.action) {
         case 'joinGame':
