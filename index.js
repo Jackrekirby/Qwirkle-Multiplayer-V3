@@ -13,6 +13,14 @@ const refs = {
     movingTile: undefined,
 };
 
+{
+    const version = 'v1';
+    const ref = document.getElementById('version');
+    if (version != ref.innerText) {
+        ref.innerText = version + '*';
+    }
+}
+
 // constants
 
 const url = 'wss://qwirkle-ws2.herokuapp.com';
