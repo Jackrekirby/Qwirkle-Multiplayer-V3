@@ -34,8 +34,8 @@ const audio = {
 
 // constants
 
-// const url = 'wss://qwirkle-ws2.herokuapp.com';
-const url = 'ws://localhost:3000/ws';
+const url = 'wss://qwirkle-ws2.herokuapp.com';
+// const url = 'ws://localhost:3000/ws';
 
 
 let tilesize = Math.floor(window.innerWidth / 8);
