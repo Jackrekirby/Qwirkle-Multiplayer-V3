@@ -12,7 +12,7 @@ const refs = {
 };
 
 {
-    const version = '4';
+    const version = '5';
     const ref = document.getElementById('version');
     if (version != ref.innerText) {
         ref.innerText = version + '*';
@@ -34,11 +34,21 @@ const audio = {
 
 // constants
 
-const url = 'wss://qwirkle-ws2.herokuapp.com';
-// const url = 'ws://localhost:3000/ws';
+// const url = 'wss://qwirkle-ws2.herokuapp.com';
+const url = 'ws://localhost:3000/ws';
+
 
 let tilesize = Math.floor(window.innerWidth / 8);
 const ntiles = 41;
+
+{
+    const tilesizeStr = localStorage.getItem('tilesize');
+    if (tilesizeStr != null) {
+        tilesize = JSON.parse(tilesizeStr);
+    }
+    clampTilesize();
+}
+
 let tilesInBag = [];
 let userHands = [];
 let boardTiles = {};
@@ -590,6 +600,11 @@ function getTileOwner(ref) {
     return null;
 }
 
+function clampTilesize() {
+    tilesize = Math.floor(Math.min(tilesize, refs.board.offsetWidth / 8));
+    tilesize = Math.floor(Math.max(tilesize, Math.max(refs.board.offsetWidth, refs.board.offsetHeight) / ntiles));
+}
+
 
 {
     const ref = document.getElementById('zoom-in');
@@ -611,7 +626,7 @@ function getTileOwner(ref) {
 
         tablePos = refs.table.getBoundingClientRect();
     }
-    ref.onclick();
+    // ref.onclick();
 }
 
 {
@@ -752,11 +767,12 @@ function clearMovingTile() {
     const ref = document.getElementById('refresh');
 
     ref.onclick = () => {
-        audio.click.play();
+        // audio.click.play();
+        location.reload();
         // clearBoard();
         // clearHand();
-        clearMovingTile();
-        socketSend({ action: 'refresh' });
+        // clearMovingTile();
+        // socketSend({ action: 'refresh' });
         // loadBoard();
         // loadHand();
     }
@@ -782,6 +798,12 @@ function clearMovingTile() {
     const ref = document.getElementById('connection');
     // console.log(ref.children[0]);
     ref.children[0].setAttribute('fill', 'hsl(150, 100%, 50%)');
+
+    ref.onclick = () => {
+        if (wsw.ws.readyState === 3) {
+            wsw.init();
+        }
+    }
 }
 
 
@@ -819,6 +841,8 @@ function socketSend(json) {
 wsw.onopen = () => {
     console.log('ws open');
 
+    wsw.opentime = new Date().getTime();
+
     connectStatus('open');
 
     let userId = localStorage.getItem('userId');
@@ -830,16 +854,24 @@ wsw.onopen = () => {
     // }, 1000);
 };
 
+function reopenSocket() {
+    const dt = new Date().getTime() - wsw.opentime;
+    console.log({ dt });
+    if (dt > 3000) {
+        wsw.init();
+    }
+}
+
 wsw.onclose = (e) => {
     connectStatus('closed');
     // console.log('ws closed', e);
-    wsw.init();
+    reopenSocket();
 };
 
 wsw.onerror = (e) => {
     connectStatus('error');
     // console.error('ws error', e);
-    wsw.init();
+    reopenSocket();
 };
 
 
@@ -886,7 +918,7 @@ wsw.onmessage = (msg) => {
             break;
         case 'game': {
             if (playerId == undefined) break;
-            const { tilebag, board, hands } = data.game;
+            const { tilebag, board, hands, selected } = data.game;
             const hand = hands[playerId];
             for (let x = 0; x < ntiles; x++) {
                 for (let y = 0; y < ntiles; y++) {
@@ -895,6 +927,7 @@ wsw.onmessage = (msg) => {
 
                     const tileId = board[x + y * ntiles];
 
+                    ref.classList.remove('selected');
                     if (tileId != null) {
                         const tileClass = tileIdToClass[tileId];
                         if (!ref.classList.contains(tileClass)) {
@@ -926,6 +959,17 @@ wsw.onmessage = (msg) => {
                         ref.classList.remove(...ref.classList);
                         ref.classList.add('tile', 'empty');
                     }
+                }
+            }
+
+            for (const { x, y } of selected.tiles) {
+                const ref = document.getElementById(`btile_${x}_${y}`);
+                if (ref == null) continue;
+
+                const tileId = board[x + y * ntiles];
+
+                if (tileId != null) {
+                    ref.classList.add('selected');
                 }
             }
 

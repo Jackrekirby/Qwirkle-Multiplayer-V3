@@ -228,6 +228,11 @@ body {
   /* background-image: url(./assets/red_cross.svg); */
 }
 
+.tile:not(.empty).selected {
+  border: 1px solid black;
+  border-radius: 2px;
+}
+
 #tile-count {
   position: absolute;
   left: 50%;
