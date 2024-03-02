@@ -1,5 +1,7 @@
-# Qwirkle-T3
+# Qwirkle-Multiplayer-V3
 
-A Test Website
+The third recreation of the board game Qwirkle with multiplayer support, via websockets on Heroku. 
 
-https://jackrekirby.github.io/Qwirkle-T3/
+**(Heroku server no longer maintained)**
+
+https://jackrekirby.github.io/Qwirkle-Multiplayer-V3
